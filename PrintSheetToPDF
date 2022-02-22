@@ -1,0 +1,34 @@
+// Convert spreadsheet to PDF file.
+function spreadsheetToPDF(id,index,url,name)
+{
+  SpreadsheetApp.flush();
+
+  //define usefull vars
+  var oauthConfig = UrlFetchApp.addOAuthService("google");
+  var scope = "https://docs.google.com/feeds/";
+
+  //make OAuth connection
+  oauthConfig.setAccessTokenUrl("https://www.google.com/accounts/OAuthGetAccessToken");
+  oauthConfig.setRequestTokenUrl("https://www.google.com/accounts/OAuthGetRequestToken?scope="+scope);
+  oauthConfig.setAuthorizationUrl("https://www.google.com/accounts/OAuthAuthorizeToken");
+  oauthConfig.setConsumerKey("anonymous");
+  oauthConfig.setConsumerSecret("anonymous");
+
+  //get request
+  var request = {
+    "method": "GET",
+    "oAuthServiceName": "google",
+    "oAuthUseToken": "always",
+    "muteHttpExceptions": true
+  };
+
+  //define the params URL to fetch
+  var params = '?gid='+index+'&fitw=true&exportFormat=pdf&format=pdf&size=A4&portrait=true&sheetnames=false&printtitle=false&gridlines=false';
+
+  //fetching file url
+  var blob = UrlFetchApp.fetch("https://docs.google.com/a/"+url+"/spreadsheets/d/"+id+"/export"+params, request);
+  blob = blob.getBlob().setName(name);
+
+  //return file
+  return blob;
+}
