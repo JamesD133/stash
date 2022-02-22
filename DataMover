@@ -1,0 +1,288 @@
+//array for setValue on Data Centre and getValue by column from database
+
+  var cellDriver = ["D7","R"];
+  var cellVIN = ["D9","H"];
+  var cellOrigin = ["D11","N"];
+  var cellDestination = ["D13","O"];
+  var cellDistance = ["","P"];
+  var cellDisposition = ["D15","L"];
+  var cellDescription = ["D17","M"];
+  var celltripID = ["H7","A"];
+  var cellTransportDate = ["H9","D"];
+  var cellInvoiceDate = ["H11","E"];
+  var cellCompanyInvoiced = ["H13","G"];
+  var cellRate = ["E7","U"];
+  var cellHours = ["H15","T"];
+  var cellTaxiCost = ["D21","AI"];
+  var cellParkingCost = ["D23","AJ"];
+  var cellAirCost = ["D25","AK"];
+  var cellMealCost = ["H21","AM"];
+  var cellFuelCard = ["F23" , "AN"]
+  var cellFuelCost = ["H23","AO"];
+  var cellHotelCost = ["H25","AL"];
+  var cellChase = ["D29","X"];
+  var cellChaseCar = ["H29","Z"];
+  var cellChaseCard = ["F33" ,"AA"]
+  var cellChaseFuel = ["H33" ,"AB"]
+  var cellChaseDriver = ["D31","AC"];
+  var cellChaseHours = ["H31","AD"];
+  var cellChaseRate = ["E31","AE"];
+  var cellVolume = ["D33","AG"];
+  var cellLastUpdate = ["H35","AQ"];
+  var cellVehicleYear = ["C35" , "I"];
+  var cellVehicleMake = ["D35" , "J"];
+  var cellVehicleModel = ["E35" , "K"];
+
+function submitDatas() {
+ var ss = SpreadsheetApp.getActiveSpreadsheet();
+ var formSS = ss.getSheetByName("Trip Submission");
+ var datasheet = ss.getSheetByName("Trip Summary");
+ var driversheet = ss.getSheetByName("Driver Sheet");
+ var lastrow = datasheet.getLastRow();
+ var tripID = formSS.getRange(celltripID[0]).getValue();
+ var maxId = findMaxId(datasheet.getRange("A2:" + "A" + lastrow).getValues());
+ var nextId = increaseId(maxId);
+
+  //getRange(row, column, numRows, numColumns)
+  var lastRowId = datasheet.getRange(lastrow,1,1,1).getValue();
+  var nextId = increaseId(lastRowId);
+  var tripID = formSS.getRange(celltripID[0]).getValue();
+  var now = new Date();
+  var trip_driver = formSS.getRange(cellDriver[0]).getValue();
+  var trip_VIN = formSS.getRange(cellVIN[0]).getValue();
+  var trip_origin = formSS.getRange(cellOrigin[0]).getValue();
+  var trip_destination = formSS.getRange(cellDestination[0]).getValue();
+  var trip_distance = GOOGLEMAPS(trip_origin,trip_destination,"miles");
+  var trip_disposition = formSS.getRange(cellDisposition[0]).getValue();
+  var trip_description = formSS.getRange(cellDescription[0]).getValue();
+  var trip_transportdate = formSS.getRange(cellTransportDate[0]).getValue();
+  var trip_invoicedate = formSS.getRange(cellInvoiceDate[0]).getValue();
+  var trip_companyinvoiced = formSS.getRange(cellCompanyInvoiced[0]).getValue();
+  var trip_hours = formSS.getRange(cellHours[0]).getValue();
+  var trip_rate = formSS.getRange(cellRate[0]).getValue();
+  var trip_taxicost = formSS.getRange(cellTaxiCost[0]).getValue();
+  var trip_parkingcost = formSS.getRange(cellParkingCost[0]).getValue();
+  var trip_aircost = formSS.getRange(cellAirCost[0]).getValue();
+  var trip_mealcost = formSS.getRange(cellMealCost[0]).getValue();
+  var trip_fuelcost = formSS.getRange(cellFuelCost[0]).getValue();
+  var trip_fuelcard = formSS.getRange(cellFuelCard[0]).getValue();
+  var trip_hotelcost = formSS.getRange(cellHotelCost[0]).getValue();
+  var trip_chase = formSS.getRange(cellChase[0]).getValue();
+  var trip_chasecar = formSS.getRange(cellChaseCar[0]).getValue();
+  var trip_chasecard = formSS.getRange(cellChaseCard[0]).getValue();
+  var trip_chasefuel = formSS.getRange(cellChaseFuel[0]).getValue();
+  var trip_chasedriver = formSS.getRange(cellChaseDriver[0]).getValue();
+  var trip_chasehours = formSS.getRange(cellChaseHours[0]).getValue();
+  var trip_chaserate = formSS.getRange(cellChaseRate[0]).getValue();
+  var trip_volume = formSS.getRange(cellVolume[0]).getValue();
+  var decode = callNHTSAAPI(trip_VIN);
+  var results = decode["Results"];
+      var yearoutput = []
+      results.forEach(function(elem,i){
+      var year = elem["ModelYear"];
+      yearoutput.push([year]);
+      })
+      var makeoutput = []
+      results.forEach(function(elem,i){
+      var make = elem["Make"];
+      makeoutput.push([make]);
+      })
+      var modeloutput = []
+      results.forEach(function(elem,i){
+      var model = elem["Model"];
+      modeloutput.push([model]);
+      })
+
+  
+  if (tripID == 20200000) { //input mode
+      var values = [[
+        nextId,'','',trip_transportdate,trip_invoicedate,'',trip_companyinvoiced,trip_VIN,yearoutput,makeoutput,modeloutput,
+        trip_disposition,trip_description,trip_origin,trip_destination,trip_distance,'',trip_driver,'',trip_hours,trip_rate,'','',trip_chase,'',trip_chasecar,trip_chasecard,trip_chasefuel,trip_chasedriver,trip_chasehours,trip_chaserate,'',trip_volume,'',trip_taxicost,trip_parkingcost,trip_aircost,trip_hotelcost,trip_mealcost,trip_fuelcard,trip_fuelcost,'',now
+       ]];
+       datasheet.getRange(datasheet.getLastRow()+1, 1, 1, 43).setValues(values);
+       clear_screen();
+  } else { //update mode
+          var rowIndex = findInRow(tripID);
+  var rangesToSetValues = [cellDriver[1], cellRate[1], cellVIN[1], cellOrigin[1], cellDestination[1],cellDisposition[1], cellDescription[1], cellTransportDate[1], cellInvoiceDate[1], cellCompanyInvoiced[1], cellHours[1], cellTaxiCost[1], cellParkingCost[1], cellAirCost[1], cellMealCost[1], cellFuelCard[1], cellFuelCost[1], cellHotelCost[1], cellChase[1], cellChaseCar[1], cellChaseCard[1], cellChaseFuel[1], cellChaseDriver[1], cellChaseRate[1], cellChaseHours[1], cellVolume[1], cellVehicleYear[1], cellVehicleMake[1], cellVehicleModel[1]]
+    var values = [
+      trip_driver,trip_rate,trip_VIN,trip_origin,trip_destination,trip_disposition, trip_description,trip_transportdate,trip_invoicedate,trip_companyinvoiced,
+      trip_hours,trip_taxicost,trip_parkingcost,trip_aircost,trip_mealcost,trip_fuelcard,trip_fuelcost,trip_hotelcost,trip_chase,trip_chasecar,trip_chasecard,trip_chasefuel,trip_chasedriver,trip_chaserate,trip_chasehours,
+      trip_volume, yearoutput, makeoutput, modeloutput
+                ];
+    for (var i=0; i<rangesToSetValues.length; i++) {
+      datasheet.getRange(rangesToSetValues[i]+rowIndex).setValue(values[i]);
+     }
+    //set LastUpdate value
+    datasheet.getRange(cellLastUpdate[1]+rowIndex).setValue(now);
+    getMember(tripID);
+  }
+}
+
+function getMember(id) {
+  var sheetData = SpreadsheetApp.getActive().getSheetByName('Trip Submission');
+  var rangesToSetValues = [cellDriver[0], cellRate[0], cellVIN[0], cellOrigin[0], cellDestination[0], cellDisposition[0], cellDescription[0], cellTransportDate[0], cellInvoiceDate[0], cellCompanyInvoiced[0], cellHours[0], cellTaxiCost[0], cellParkingCost[0], cellAirCost[0], cellMealCost[0], cellFuelCard[0], cellFuelCost[0], cellHotelCost[0], cellChase[0], cellChaseCar[0], cellChaseCard[0], cellChaseFuel[0], cellChaseDriver[0], cellChaseRate[0], cellChaseHours[0], cellVolume[0], cellLastUpdate[0], cellVehicleYear[0], cellVehicleMake[0], cellVehicleModel[0]];
+  var rowIndex = findInRow(id);
+  var sheetDatabase = SpreadsheetApp.getActive().getSheetByName('Trip Summary');
+
+    var values = [
+                 sheetDatabase.getRange(cellDriver[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellRate[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellVIN[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellOrigin[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellDestination[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellDisposition[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellDescription[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellTransportDate[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellInvoiceDate[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellCompanyInvoiced[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellHours[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellTaxiCost[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellParkingCost[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellAirCost[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellMealCost[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellFuelCard[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellFuelCost[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellHotelCost[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChase[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChaseCar[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChaseCard[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChaseFuel[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChaseDriver[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChaseRate[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellChaseHours[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellVolume[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellLastUpdate[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellVehicleYear[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellVehicleMake[1]+rowIndex).getValue(),
+                 sheetDatabase.getRange(cellVehicleModel[1]+rowIndex).getValue(),
+                ];
+    for (var i=0; i<rangesToSetValues.length; i++) {
+      sheetData.getRange(rangesToSetValues[i]).setValue(values[i]);
+  }
+}
+
+function findInRow(id) {
+  var sheetDatabase = SpreadsheetApp.getActive().getSheetByName('Trip Summary');
+  var rows  = sheetDatabase.getRange("A2:A").getValues();
+
+  for (var r=0; r<rows.length; r++) {
+    if ( rows[r][0] === id ) {
+      return r+2;
+    }
+  }
+
+  return -1;
+
+}
+
+function increaseId(id) {
+  if(id>0) {
+    var returnId;
+    returnId = id + 1;
+    return returnId;
+  }
+}
+
+function findMaxId(myvalues){
+  return Math.max.apply(null, myvalues);
+}
+
+function onOpen(e) {
+  //initialization
+  /*var sheet = SpreadsheetApp.getActive().getSheetByName('Reception');
+  sheet.getRange(celltripID[0]).setValue(20200000);
+  clear_screen();*/
+}
+
+function onEdit(e) {
+  //e.source.setActiveSelection(e.range.offset(2, 0));
+  var sheet = SpreadsheetApp.getActive().getSheetByName('Trip Submission');
+  var rangeRowId = sheet.getActiveCell().getRow();
+  var rangeColId = sheet.getActiveCell().getColumn();
+  //Browser.msgBox("Row Id: " + rangeRowId + " Column Id: " + rangeColId );
+  if(rangeRowId == 7 && rangeColId == 8) {
+    var tripID = sheet.getRange(celltripID[0]).getValue();
+    lookUpId(tripID);
+  }
+
+}
+
+function clear_screen() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('Trip Submission');
+  var rangesToClear = [cellDriver[0], cellRate[0], cellVIN[0], cellOrigin[0], cellDestination[0], cellDisposition[0], cellDescription[0], cellTransportDate[0],
+                       cellInvoiceDate[0], cellCompanyInvoiced[0], cellHours[0], cellTaxiCost[0], cellParkingCost[0],
+                       cellAirCost[0], cellMealCost[0], cellFuelCard[0], cellFuelCost[0], cellHotelCost[0], cellChase[0], cellChaseCar[0], cellChaseCard[0], cellChaseFuel[0], cellChaseDriver[0], cellChaseRate[0], cellChaseHours[0],
+                       cellVolume[0],cellLastUpdate[0], cellVehicleYear[0], cellVehicleMake[0], cellVehicleModel[0]];
+  for (var i=0; i<rangesToClear.length; i++) {
+    sheet.getRange(rangesToClear[i]).clearContent();
+  }
+  var mycellDriver = sheet.getRange(cellDriver[0]);
+  mycellDriver.activateAsCurrentCell();
+}
+
+function lookUpId(id) {
+  if (id==20200000) { //Data Centre mode
+    clear_screen();
+  }
+  if (id>20200000) { //lookup mode
+    getMember(id);
+  }
+}
+
+function callNHTSAAPI(vin) {
+  
+  // Call the NHTSA API
+  var url = "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvaluesextended/"+vin+"*BA?format=json"
+  var response = UrlFetchApp.fetch(url);
+  
+  // Parse the JSON reply
+  var json = response.getContentText();
+    return JSON.parse(json);}
+
+/**
+* Get Distance between 2 different addresses.
+* @param start_address Address as string Ex. "300 N LaSalles St, Chicago, IL"
+* @param end_address Address as string Ex. "900 N LaSalles St, Chicago, IL"
+* @param return_type Return type as string Ex. "miles" or "kilometers" or "minutes" or "hours"
+* @customfunction
+*/
+ 
+function GOOGLEMAPS(start_address,end_address,return_type) {
+ 
+  // https://www.chicagocomputerclasses.com/
+  // Nov 2017
+  // improvements needed
+  
+  var mapObj = Maps.newDirectionFinder();
+  mapObj.setOrigin(start_address);
+  mapObj.setDestination(end_address);
+  var directions = mapObj.getDirections();
+  
+  var getTheLeg = directions["routes"][0]["legs"][0];
+  
+  var meters = getTheLeg["distance"]["value"];
+  
+  switch(return_type){
+    case "miles":
+      return meters * 0.000621371;
+      break;
+    case "minutes":
+        // get duration in seconds
+        var duration = getTheLeg["duration"]["value"];
+        //convert to minutes and return
+        return duration / 60;
+      break;
+    case "hours":
+        // get duration in seconds
+        var duration = getTheLeg["duration"]["value"];
+        //convert to hours and return
+        return duration / 60 / 60;
+      break;      
+    case "kilometers":
+      return meters / 1000;
+      break;
+    default:
+      return "Error: Wrong Unit Type";
+   }
+  
+}    
