@@ -1,3 +1,4 @@
+//Within GoogleSheets, moves data from one sheet (data entry sheet) to another (the database sheet), with the ability to modify and resubmit information. 
 //array for setValue on Data Centre and getValue by column from database
 
   var cellDriver = ["D7","R"];
