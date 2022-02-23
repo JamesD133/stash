@@ -1,0 +1,83 @@
+function callNHTSAAPI(vin) {
+  
+  // Call the NHTSA API
+  var url = "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvaluesextended/"+vin+"*BA?format=json"
+  var response = UrlFetchApp.fetch(url);
+  
+  // Parse the JSON reply
+  var json = response.getContentText();
+    return JSON.parse(json);}
+
+function vinDecode() {
+ var s = SpreadsheetApp.getActiveSheet();
+ var timer = new Date(2021,6,13);
+ var today = new Date();
+if (timer.valueOf() > today.valueOf()) {
+ if(s.getName() == "Log") { //checks that we're on the correct sheet
+   var r = s.getActiveCell();
+   if(r.getColumn() == 4) { //checks the column(A)
+     var yearCell = r.offset(0, 4); //offset to same row, and column B; A+1
+     var makeCell = r.offset(0, 6);
+     var modelCell = r.offset(0, 8);
+     var seriesCell = r.offset(0, 10);
+     var trimCell = r.offset(0, 12);
+     var dtCell = r.offset(0, 15);
+     var vclassCell = r.offset(0, 17);
+       var vin = s.getActiveCell().getValue();
+       var decode = callNHTSAAPI(vin);
+       var results = decode["Results"];
+         var yearoutput = []
+         results.forEach(function(elem,i){
+         var year = elem["ModelYear"];
+         yearoutput.push([year]);
+       });
+         var makeoutput = []
+         results.forEach(function(elem,i){
+         var make = elem["Make"];
+         makeoutput.push([make]);
+       });
+         var modeloutput = []
+         results.forEach(function(elem,i){
+         var model = elem["Model"];
+         modeloutput.push([model]);
+       });
+         var seriesoutput = []
+         results.forEach(function(elem,i){
+         var series = elem["Series"];
+         seriesoutput.push([series]);
+       });
+         var trimoutput = []
+         results.forEach(function(elem,i){
+         var trim = elem["Trim"];
+         trimoutput.push([trim]);
+       });
+         var dtoutput = []
+         results.forEach(function(elem,i){
+         var dt = elem["DriveType"];
+         dtoutput.push([dt]);
+       });
+         var vclassoutput = []
+         results.forEach(function(elem,i){
+         var vclass = elem["BodyClass"];
+         vclassoutput.push([vclass]);
+       });
+     
+       yearCell.clearContent();
+       makeCell.clearContent();
+       modelCell.clearContent();
+       seriesCell.clearContent();
+       trimCell.clearContent();
+       dtCell.clearContent();
+       vclassCell.clearContent();     
+       
+       yearCell.setValues(yearoutput);
+       makeCell.setValues(makeoutput);
+       modelCell.setValues(modeloutput);
+       seriesCell.setValues(seriesoutput);
+       trimCell.setValues(trimoutput);
+       dtCell.setValues(dtoutput);
+       vclassCell.setValues(vclassoutput);
+     };
+   };
+ }
+}
