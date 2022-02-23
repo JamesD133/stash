@@ -1,0 +1,227 @@
+//#####GLOBALS#####
+const o_date = new Intl.DateTimeFormat('en-GB');
+const f_date = (m_ca, m_it) => Object({...m_ca, [m_it.type]: m_it.value});
+const m_date = o_date.formatToParts().reduce(f_date, {}); //Ridiculous code to get the folder name consisting of today's date
+const folder_name = (m_date.year + m_date.month + m_date.day); //(m_date.year + m_date.month + m_date.day)
+const FOLDER_ID = DriveApp.getFoldersByName("20201210").next().getId(); //Folder ID of all docs
+const SS = "1eejqsI5K-XdbrYdTGuj50e2q4ibpXzS4KqYhPMjcwOs"; //The spreadsheet ID
+const SHEET = "Purchase Submissions"; //The sheet tab name
+
+/*########################################################
+ * Main run file: extracts VINs from PDFs and their 
+ * section from the PDF name from multiple documents.
+ *
+ * Displays a list of VINs and sections in a Google Sheet. 
+ *
+ */
+function extractVINsAndSectionToSheets(){
+  const ss = SpreadsheetApp.getActiveSpreadsheet()
+  //Get all PDF files:
+  const folder = DriveApp.getFolderById(FOLDER_ID);
+  //const files = folder.getFiles();
+  const files = folder.getFilesByType("application/pdf");
+  
+  let allVINsAndCRNs = []
+  //Iterate through each folder
+  while(files.hasNext()){
+    let file = files.next();
+    let fileID = file.getId();
+    
+    const doc = getTextFromPDF(fileID);
+    const VINs = extractVINs(doc.text);
+    
+    //Add VIN to Section name
+    const VINsWithCRN = Array.from([VINs], VIN => VIN);
+    
+    //Optional: Notify user of process. You can delete lines 33 to 38
+    if(VINs[0] === "No items found") {
+      ss.toast("No items found in " + doc.name, "Warning",2);
+    }else{
+      ss.toast(doc.name + " extracted");
+    };    
+    
+    allVINsAndCRNs = allVINsAndCRNs.concat(VINsWithCRN);
+    
+  };
+    importToSpreadsheet(allVINsAndCRNs);
+};
+
+
+/*########################################################
+ * Extracts the text from a PDF and stores it in memory.
+ * Also extracts the file name.
+ *
+ * param {string} : fileID : file ID of the PDF that the text will be extracted from.
+ *
+ * returns {array} : Contains the file name (section) and PDF text.
+ *
+ */
+function getTextFromPDF(fileID) {
+  var blob = DriveApp.getFileById(fileID).getBlob()
+  var resource = {
+    title: blob.getName(),
+    mimeType: blob.getContentType()
+  };
+  var options = {
+    ocr: true, 
+    ocrLanguage: "en"
+  };
+  // Convert the pdf to a Google Doc with ocr.
+  var file = Drive.Files.insert(resource, blob, options);
+
+  // Get the texts from the newly created text.
+  var doc = DocumentApp.openById(file.id);
+  var text = doc.getBody().getText();
+  var title = doc.getName();
+  
+  // Deleted the document once the text has been stored.
+    Drive.Files.remove(doc.getId());
+  
+  return {
+    name:title,
+    text:text
+  };
+}
+
+/*########################################################
+ * Use the text extracted from PDF and extracts invoice details based on value parameters.
+ * Documentation found in SmartSheet Test file -> InvoicePuller Documentation
+ * Also extracts the file name.
+ *
+ * param {string} : text : text of data from PDF.
+ *
+ * returns {array} : Of all VINs found in text.
+ *
+ */
+function extractVINs(text){
+    
+  /* Sets the entry date */
+  const entryDate = new Date();
+  
+  /* Pulls purchase date */
+  const regexInvDate = /(?<=INVOICE DATE \n)\d{2}-\w{3}-\d{4}|(?<=PAYMENT DATE PAYMENT METHOD CLIENT \n)\d{2}-\w{3}-\d{4}|(?<=Sale Date: \n\d{8} )\d{2}\/\d{2}\/\d{4}|(?<=Transporter Cost: NA \n\d+,\d+ \d+,\d+ )\d{2}\/\d{2}\/\d{4}|(?<=Sale Date: )\d{2}\/\d{2}\/\d{4}|\d{2}\/\d{2}\/\d{4}(?= \nSale)|(?<=Electronically Signed \n)\d{2}\/\d{2}\/\d{4}|(?<=SALE DATE \n.+?\n.+?\n.+?\n)\d{2}\/\d{2}\/\d{4}/i;
+  const readInvDate = [text.match(regexInvDate)];
+  Logger.log(readInvDate.toString());
+  const invDateCleaner = /INVOICE DATE \n|PAYMENT DATE PAYMENT METHOD CLIENT \n|Sale Date: \n\d{8} |Transporter Cost: NA \n\d+,\d+ \d+,\d+ |Sale Date: |Electronically Signed \n|SALE DATE \n.+?\n.+?\n.+?\n|\-/gi;
+  const cleanInvDate = readInvDate.toString().replace(invDateCleaner,'');
+  Logger.log(cleanInvDate);
+  const convertInvDate = new Date(cleanInvDate);
+  
+  /*Pulls VIN */
+  const regexpVIN = /\S{12}\d{5}/i;
+  const readVIN = [...text.match(regexpVIN)];
+  
+  /*Decodes Y/M/M from NHTSA VIN system*/
+  var decode = callNHTSAAPI2(readVIN);
+  var results = decode["Results"];
+      var yearoutput = []
+      results.forEach(function(elem,i){
+      var year = elem["ModelYear"];
+      yearoutput.push([year]);
+      })
+      var makeoutput = []
+      results.forEach(function(elem,i){
+      var make = elem["Make"];
+      makeoutput.push([make]);
+      })
+      var modeloutput = []
+      results.forEach(function(elem,i){
+      var model = elem["Model"];
+      modeloutput.push([model]);
+      })
+      var seriesoutput = []
+      results.forEach(function(elem,i){
+      var series = elem["Series"];
+      seriesoutput.push([series]);
+      })
+      var trimoutput = []
+      results.forEach(function(elem,i){
+      var trim = elem["Trim"];
+      trimoutput.push([trim]);
+      })
+      var dtoutput = []
+      results.forEach(function(elem,i){
+      var dt = elem["DriveType"];
+      dtoutput.push([dt]);
+      })
+      var vclassoutput = []
+      results.forEach(function(elem,i){
+      var vclass = elem["BodyClass"];
+      vclassoutput.push([vclass]);
+      })
+  
+  /* Pulls Odometer reading, cleans it to standard digit string */
+  const regexpMileage = /(?<=MILEAGE \n)\d{1,6}|\d{1,6}(?= miles)|\d{1,3}\,\d{3}(?= miles)|(?<=Transporter Cost: NA\s\n)\d+\,\d+|(?<=Transporter Cost: NA \n)\d+|\d{1,3}\,\d{1,3}(?= miles)|(?<=\w{12}\d{5} \n)\d{1,3},\d{1,3}|(?<=now reads. \n)\d{1,6}|(?<=MILEAGE )\d{1,6}/i;
+  const readMileage = [text.match(regexpMileage)];
+  const mileageCleaner= /,|MILEAGE \n| miles|Transporter Cost: NA\s\n|\w{12}d{5} \n|now reads. \n|MILEAGE /gi;
+  const cleanMileage = readMileage.toString().replace(mileageCleaner,'');
+  
+  /*Pulls Exterior color*/
+  const regexpExtColor = /(?<=COLOR )\w+(?= \n)|(?<=Category: \n)\w*|(?<=\w{12}\d{5} )\(\w*\)|(?<=Stock #: \S{6} \n\d{4} .+?, )\w*| \w{4,10}(?= \w{12}\d{5})|(?<=Model\s\n.+?\n)\w+|(?<=OPTIONS DT:.+? \n)\w*/i;
+  const readExtColor = [text.match(regexpExtColor)];
+  const extColorCleaner = /COLOR | \n|Category: \n|\w{12}\d{5} |\(|\)|Stock #: \S{6} \n\d{4} .+?, | \w{12}\d{5}|Model\s\n.+?\n|OPTIONS DT:.+? \n/gi;
+  const cleanExtColor = readExtColor.toString().replace(extColorCleaner,'');
+  
+  /*Pulls Interior color. Significantly more limited*/
+  const regexpIntColor = /(?<=Category: \n\w* with )\w*/i;
+  const readIntColor = [text.match(regexpIntColor)];
+  const intColorCleaner = /Category: \n\w* with /gi;
+  const cleanIntColor = readIntColor.toString().replace(intColorCleaner,'');
+  
+  /* Pulls Original Cost */
+  const regexOriginalCost = /(?<=\d{4}(.+?)\n\n\$)\d{1,3}\,\d{1,3}\.\d{2}|(?<=\s\d{4}(.+?)\$)\d{1,3},\d{1,3}\.\d{2}|(?<=Total Amount: \n\$)\d{1,3}\,\d{1,3}\.\d{2}|(?<=Sale Price: )\d{1,3}\,\d{1,3}|(?<=Vehicle Sale \$)\d{1,3}\,\d{1,3}\.\d{2}|(?<=Selling Price\s\n\$)\d{1,3}\,\d{3}\.\d{2}|(?<=PRICE \n)\d{1,3}\,\d{3}\.\d{2}/i;
+  const readOriginalCost = [text.match(regexOriginalCost)];
+  Logger.log(readOriginalCost.toString());
+  const originalCostCleaner = /\d{4}(.+?)\n\n|\,(\D+?)\,|\s\d{4}(.+?)\s\$|,,.+|Total Amount: \n|Sale Price: |Vehicle Sale |Selling Price\s\n|PRICE \n|,/gi;
+  const cleanOriginalCost = readOriginalCost.toString().replace(originalCostCleaner,'');
+  
+  /* Pulls auction/buy/3rd party fees */
+
+  /* Pulls purchase price */
+  const regexPurchPrice = /(?<=BEFORE PAYMENTS \n\$)\d{1,3}\,\d{1,3}\.\d{2}|(?<=PAYMENT AMOUNT \$)\d{1,3}\,\d{1,3}\.\d{2}|(?<=Total Amount: \n\$\d{1,3}\,\d{1,3}\.\d{2} \$\d{1,3}\.\d{2} \n\$)\d{1,2}\,\d{1,3}\.\d{2}|(?<=Transporter Cost: NA \n\d+,\d+ )\d+,\d+(?= \d{2}\/\d{2}\/\d{4})|(?<=Total: \$)\d{1,3},\d{1,3}\.\d{2}|(?<=\w{12}\d{5} \d{1,3}\,\d{1,3} \d{1,3}\.\d{2} )\d{1,3}\,\d{1,3}\.\d{2}|(?<=Total Amount Due\s\n\$)\d{1,3}\,\d{3}\.\d{2}|(?<=COMPLETE\s\n)\d{1,3}\,\d{3}\.\d{2}/i;
+  const readPurchPrice = [text.match(regexPurchPrice)];
+  Logger.log(readPurchPrice.toString());
+  const purchPriceCleaner = /BEFORE PAYMENTS \n|PAYMENT AMOUNT |Total Amount: \n\$\d{1,3},\d{1,3}\.\d{2} \$\d{1,3}\.\d{2} \n|Transporter Cost: NA \n\d+,\d+ | \d{2}\/\d{2}\/\d{4}|Total: |\w{12}\d{5} \d{1,3},\d{1,3} \d{1,3}\.\d{2} |Total Amount Due\s\n|COMPLETE\s\n|/gi;
+  const cleanPurchPrice = readPurchPrice.toString().replace(purchPriceCleaner,'');
+
+  /* Pulls Lienholder */
+  const regexLienholder = /(?<=OWNER ([\s\S]*?)\d{7}\n).+|(?<=Seller: \n).*|(?<=Seller: ).+?(?= \nContact)|(?<=SELLER: BUYER: .+? \n).+?(?=\n)|(?<=Seller: \n)^.*$|Enterprise Rent-A-Car|The Hertz Corporation|(?<=SELLER \(TRANSFEROR\) \S{4} ).+?(?=\d{1,5})/i;
+  const readLienholder = [text.match(regexLienholder)];
+  Logger.log(readLienholder.toString());
+  const lienholderCleaner = /OWNER ([\s\S]*?)\d{7}\n|\s\,[\s\S]*|Seller: \n|Seller: | \nContact|BUYER:.+? \n|\n| Rent-A-Car|The | Corporation|SELLER \(TRANSFEROR\) \S{4} |\d{3}|\,/gi;
+  const cleanLienholder = readLienholder.toString().replace(lienholderCleaner,'');
+  
+  try{
+    let array = [entryDate,convertInvDate,/*MONTH*/,readVIN,/*Stock#*/,/*Classification*/,/*Transport Status*/,yearoutput,/*YEAR*/,makeoutput,/*MAKE*/,modeloutput,/*MODEL*/,seriesoutput,/*SERIES*/,trimoutput,/*TRIM*/,/*C/T*/,dtoutput,/*DT*/,vclassoutput,/*Class Full*/,/*Class Base*/,cleanMileage,/*CR Grade*/,cleanExtColor,cleanIntColor,cleanOriginalCost,/*Auction Fee*/,/*PSI Fee*/,cleanPurchPrice,/*NADA*/,/*Back of Book*/,/*Purchasing Dealer*/,/*Receiving Dealer*/,cleanLienholder,/*Acq Source*/];
+    return array;
+  }catch(e){
+    //Optional: If you want this info added to your Sheet data. Otherwise delete rows 98-99. 
+    let array = [''] 
+    return array;
+  }
+};
+
+
+/*########################################################
+ * Takes the culminated list of VINs and sections and inserts them into 
+ * a Google Sheet.
+ *
+ * param {array} : data : 2d array containing a list of VINs and their associated sections.
+ *
+ */
+function importToSpreadsheet(data){
+  const sheet = SpreadsheetApp.openById(SS).getSheetByName(SHEET);
+  
+  const range = sheet.getRange(sheet.getLastRow()+1,1,data.length,36);
+  range.setValues(data);
+}
+
+function callNHTSAAPI2(vin2) {
+  
+  // Call the NHTSA API
+  var url = "https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvaluesextended/"+vin2+"*BA?format=json"
+  var response = UrlFetchApp.fetch(url);
+  
+  // Parse the JSON reply
+  var json = response.getContentText();
+    return JSON.parse(json);}
